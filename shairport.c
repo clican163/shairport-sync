@@ -83,6 +83,7 @@
 #include "activity_monitor.h"
 #include "audio.h"
 #include "common.h"
+#include "remote/remote.h"
 #include "rtp.h"
 #include "rtsp.h"
 #include "utilities/exit.h"
@@ -468,6 +469,8 @@ int parse_options(int argc, char **argv) {
       {"metadata-pipename", 0, POPT_ARG_STRING, &config.metadata_pipename, 0, NULL, NULL},
       {"get-coverart", 'g', POPT_ARG_NONE, &config.get_coverart, 'g', NULL, NULL},
 #endif
+      {"remote-control-pipename", 0, POPT_ARG_STRING, &config.remote_control_pipename, 0, NULL,
+       NULL},
       POPT_AUTOHELP{NULL, 0, 0, NULL, 0, NULL, NULL}};
 
   // we have to parse the command line arguments to look for a config file
@@ -3726,6 +3729,14 @@ int main(int argc, char **argv) {
   convolver_pool_init(config.convolution_threads, 8); // 8 channels
 #endif
   activity_monitor_start();
+
+  // Listen for remote control commands written to a FIFO by the host application.
+#ifdef CONFIG_REMOTE_CONTROL
+  if (config.remote_control_pipename != NULL) {
+    remote_control_pipe_start(config.remote_control_pipename);
+  }
+#endif
+
   debug(4, "create an RTSP listener");
   // note: the Avahi Threaded Poll thread will be named after whatever name you use here too, so
   // you'll see two threads named "listener" or whatever...

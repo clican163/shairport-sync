@@ -195,6 +195,8 @@ typedef struct {
   char *password;
   char *service_name; // the name for the shairport service, e.g. "Shairport Sync Version %v running
                       // on host %h"
+  char *remote_control_pipename; // path of a FIFO on which remote control commands (one per line)
+                                 // are accepted from the host application, e.g. "nextitem"
 
 #ifdef CONFIG_PULSEAUDIO
   char *pa_server;           // the pulseaudio server address that Shairport Sync will play on.

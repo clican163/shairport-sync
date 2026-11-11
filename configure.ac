@@ -393,13 +393,21 @@ if test "x$with_mqtt_client" = "xyes" && test "x$with_avahi" != "xyes" ; then
   AC_MSG_WARN([MQTT needs Avahi for remote control functionality. With the current configuration settings, only metadata publishing will be supported.])
 fi
 
+# Look for remote control support on its own, without MQTT, D-Bus or MPRIS.
+# Used by Music Pool, which drives the receiver locally over a command FIFO.
+AC_ARG_WITH(remote-control, [AS_HELP_STRING([--with-remote-control],[include support for sending remote control commands (play, pause, next, previous, etc.) to the AirPlay source])], ,)
+if test "x$with_remote_control" = "xyes" ; then
+  REQUESTED_REMOTE_CONTROL_SUPPORT=1
+  AC_DEFINE([CONFIG_REMOTE_CONTROL], 1, [Include support for controlling the AirPlay source])
+fi
+
 if test "x$with_mpris_interface" = "xyes" || test "x$with_dbus_interface" = "xyes" || test "x$with_mqtt_client" = "xyes" ; then
   REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT=1
   REQUESTED_METADATA_HUB_FOR_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT=1
   AC_DEFINE([CONFIG_DACP_CLIENT], 1, [DACP client needed for extended metadata support.])
 fi
 AM_CONDITIONAL([USE_DACP_CLIENT], [test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1"])
-AM_CONDITIONAL([USE_REMOTE_CONTROL], [test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1"])
+AM_CONDITIONAL([USE_REMOTE_CONTROL], [test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1" || test "x$REQUESTED_REMOTE_CONTROL_SUPPORT" = "x1"])
 
 
 if test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1" || test "x$with_metadata" = "xyes" || test "x$with_metadata_pipe" = "xyes" || test "x$with_metadata_multicast" = "xyes" ; then

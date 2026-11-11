@@ -30,6 +30,11 @@
 #include "player.h"
 #include "rtsp.h"
 
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+
 // these are indexed by simple_command_t
 static const char *simple_command_strings[] = {
     "play",          /* rcsc_play           = 0 */
@@ -558,14 +563,98 @@ void remote_simple_command(simple_command_t command) {
         stop_play(); // stop any current session and don't replace it
         break;
       default:
-        debug(4, "remote_simple_command %u -- AirPlay 2.", command);
+        debug(2, "remote_simple_command %u -- AirPlay 2.", command);
         ap2_event_send_simple_modern_media_remote_command(principal_conn, command);
         break;
       }
     }
+  } else if (available == 0) {
+    debug(2, "remote_simple_command %u -- no active AirPlay 2 session; command ignored.",
+          command);
   }
   pthread_cleanup_pop(1); // release the principal_conn lock
 #endif
+}
+
+// ---------------------------------------------------------------------
+// Local remote control command pipe.
+//
+// The host application (e.g. Music Pool) writes commands, one per line, to a
+// FIFO. Each line is dispatched through remote_simple_command(), which -- in
+// AirPlay 2 mode -- forwards it to the source over the existing MRP event
+// channel. This gives a macOS host a way to drive the source without D-Bus,
+// MQTT or DACP support.
+// ---------------------------------------------------------------------
+
+static pthread_t remote_control_pipe_thread;
+static char *remote_control_pipe_path = NULL;
+static int remote_control_pipe_running = 0;
+
+static void remote_control_pipe_handle_line(const char *line) {
+  int i;
+  for (i = rcsc_play; i <= rcsc_volume_down; i++) {
+    if ((simple_command_strings[i] != NULL) && (strcmp(simple_command_strings[i], line) == 0)) {
+      debug(2, "remote control pipe: \"%s\".", line);
+      remote_simple_command((simple_command_t)i);
+      return;
+    }
+  }
+  debug(1, "remote control pipe: unrecognised command \"%s\".", line);
+}
+
+static void *remote_control_pipe_thread_code(__attribute__((unused)) void *arg) {
+  const char *path = remote_control_pipe_path;
+  char command[256];
+  size_t command_length = 0;
+  while (remote_control_pipe_running) {
+    int fd = open(path, O_RDONLY); // blocks until a writer opens the FIFO
+    if (fd < 0) {
+      if (errno == EINTR)
+        continue;
+      debug(1, "remote control pipe: can't open \"%s\" (%s); retrying.", path, strerror(errno));
+      sleep(1);
+      continue;
+    }
+    debug(2, "remote control pipe: \"%s\" connected.", path);
+    for (;;) {
+      char c;
+      ssize_t n = read(fd, &c, 1);
+      if (n == 1) {
+        if (c == '\n') {
+          command[command_length] = '\0';
+          if (command_length > 0)
+            remote_control_pipe_handle_line(command);
+          command_length = 0;
+        } else if (command_length < sizeof(command) - 1) {
+          command[command_length++] = c;
+        }
+      } else if (n == 0) {
+        break; // the writer closed the FIFO
+      } else if (errno == EINTR) {
+        continue;
+      } else {
+        break;
+      }
+    }
+    if (command_length > 0) { // handle a final command without a trailing newline
+      command[command_length] = '\0';
+      remote_control_pipe_handle_line(command);
+      command_length = 0;
+    }
+    close(fd);
+    debug(2, "remote control pipe: writer disconnected.");
+  }
+  return NULL;
+}
+
+void remote_control_pipe_start(const char *path) {
+  if ((path == NULL) || (path[0] == '\0'))
+    return;
+  remote_control_pipe_path = strdup(path);
+  remote_control_pipe_running = 1;
+  named_pthread_create(&remote_control_pipe_thread, NULL, &remote_control_pipe_thread_code, NULL,
+                       "remote_pipe");
+  debug(2, "remote control pipe listening on \"%s\".", path);
 }
 
 int remote_set_repeat_mode(repeat_status_type mode) {

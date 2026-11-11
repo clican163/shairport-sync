@@ -46,4 +46,11 @@ int remote_set_shuffle_mode(shuffle_status_type mode);
 
 void remote_simple_command(simple_command_t command);
 
+// Start a thread that reads remote control commands (one per line) from the
+// named FIFO and dispatches them through remote_simple_command(). Intended for
+// host applications (e.g. Music Pool) that drive the receiver locally.
+// Recognised command names are those in simple_command_strings (play, pause,
+// playpause, stop, nextitem, previtem, volumeup, volumedown).
+void remote_control_pipe_start(const char *path);
+
 ssize_t ap2_event_send_dev_mule(unsigned int command_number);
