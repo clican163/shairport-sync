@@ -401,23 +401,12 @@ if test "x$with_remote_control" = "xyes" ; then
   AC_DEFINE([CONFIG_REMOTE_CONTROL], 1, [Include support for controlling the AirPlay source])
 fi
 
-# A classic (AirPlay 1) build has no AirPlay 2 MRP event channel, so remote
-# control and volume changes go to the source's DACP server instead. That path
-# lives in dacp.c, which is otherwise only compiled for the D-Bus/MPRIS/MQTT
-# interfaces, and it is built on the metadata hub -- so both are requested here.
-AC_ARG_WITH(dacp-client, [AS_HELP_STRING([--with-dacp-client],[include the DACP client (needed for remote control in a classic AirPlay build)])], ,)
-if test "x$with_dacp_client" = "xyes" ; then
-  REQUESTED_DACP_CLIENT_SUPPORT=1
-  AC_DEFINE([CONFIG_DACP_CLIENT], 1, [DACP client needed for remote control in a classic AirPlay build.])
-  REQUESTED_METADATA_HUB_FOR_DACP_CLIENT=1
-fi
-
 if test "x$with_mpris_interface" = "xyes" || test "x$with_dbus_interface" = "xyes" || test "x$with_mqtt_client" = "xyes" ; then
   REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT=1
   REQUESTED_METADATA_HUB_FOR_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT=1
   AC_DEFINE([CONFIG_DACP_CLIENT], 1, [DACP client needed for extended metadata support.])
 fi
-AM_CONDITIONAL([USE_DACP_CLIENT], [test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1" || test "x$REQUESTED_DACP_CLIENT_SUPPORT" = "x1"])
+AM_CONDITIONAL([USE_DACP_CLIENT], [test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1"])
 AM_CONDITIONAL([USE_REMOTE_CONTROL], [test "x$REQUESTED_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1" || test "x$REQUESTED_REMOTE_CONTROL_SUPPORT" = "x1"])
 
 
@@ -452,7 +441,7 @@ AM_CONDITIONAL([USE_METADATA_PIPE], [test "x$DEFAULT_INCLUDE_PIPE_METADATA" = "x
 
 
 AC_MSG_CHECKING(if the metadata hub is needed)
-if test "x$REQUESTED_METADATA_HUB_FOR_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1" || test "x$REQUESTED_METADATA_HUB_FOR_METADATA_PIPE_IN_AIRPLAY_2" = "x1" || test "x$REQUESTED_METADATA_HUB_FOR_DACP_CLIENT" = "x1" ; then
+if test "x$REQUESTED_METADATA_HUB_FOR_EXTENDED_METADATA_AND_REMOTE_CONTROL_SUPPORT" = "x1" || test "x$REQUESTED_METADATA_HUB_FOR_METADATA_PIPE_IN_AIRPLAY_2" = "x1" ; then
   REQUESTED_METADATA_HUB=1
   AC_MSG_RESULT(yes)
   AC_DEFINE([CONFIG_METADATA_HUB], 1, [Metadata Hub included.])
