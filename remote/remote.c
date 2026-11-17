@@ -32,6 +32,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -592,6 +593,21 @@ static int remote_control_pipe_running = 0;
 
 static void remote_control_pipe_handle_line(const char *line) {
   int i;
+  // "setvolume <unit volume 0..1>" -- set the source's volume to an absolute level.
+  // The unit volume uses the same mapping as airplayVolumeToUnitVolume().
+  if (strncmp(line, "setvolume ", 10) == 0) {
+    double unit_volume = atof(line + 10);
+    double airplay_volume;
+    if (unit_volume <= 0.0)
+      airplay_volume = -144.0; // treat the bottom of the range as mute
+    else if (unit_volume >= 1.0)
+      airplay_volume = 0.0;
+    else
+      airplay_volume = (unit_volume - 1.0) * 30.0;
+    debug(2, "remote control pipe: setvolume %.3f -> %.3f dB.", unit_volume, airplay_volume);
+    remote_set_airplay_volume(airplay_volume);
+    return;
+  }
   for (i = rcsc_play; i <= rcsc_volume_down; i++) {
     if ((simple_command_strings[i] != NULL) && (strcmp(simple_command_strings[i], line) == 0)) {
       debug(2, "remote control pipe: \"%s\".", line);
